@@ -13,59 +13,76 @@ function removePdfLineBreaks() {
         return;
     }
 
-    let resultText = '';
+    // --- ここからα/βマーク方式の処理 ---
     
-    // 最初にCRLF, CRをLFに統一し、全角スペースを半角スペースに変換
-    let cleanedInput = inputText.replace(/\r\n|\r/g, '\n').replace(/　/g, ' ');
+    // 1. CRLF, CRをLFに統一し、全角スペースを半角スペースに変換
+    let processedText = inputText.replace(/\r\n|\r/g, '\n').replace(/　/g, ' ');
 
-    // 2つ以上の連続改行を「段落区切りマーカー」に変換し、一旦、段落に分割
-    const paragraphs = cleanedInput.split('\n\n'); 
+    // 2. 全改行（\n）を一時的なαマークに変換
+    //    ただし、連続する2つ以上の改行は、段落区切りとして維持するために、
+    //    まず「\n\n」を特別なマークに変換し、その後「\n」をαマークに変換し、
+    //    最後に特別なマークを「\n\n」に戻す、という手順を取る。
+    //    これにより、作者が意図した段落間の「間」を保持できる。
+    const PARAGRAPH_SEP_MARK = '{{PARAGRAPH_SEPARATOR}}';
+    const LINE_BREAK_ALPHA_MARK = '{{LINE_BREAK_ALPHA}}';
 
-    paragraphs.forEach((paragraph, paragraphIndex) => {
-        // 各段落内の単一改行を、一時的な内部改行マーカーに変換
-        // これで段落全体を一つの文字列として扱えるようにする
-        let processedParagraph = paragraph.replace(/\n/g, '<LINE_BREAK>');
+    processedText = processedText.replace(/\n\n+/g, PARAGRAPH_SEP_MARK); // 連続改行を一時マーク
+    processedText = processedText.replace(/\n/g, LINE_BREAK_ALPHA_MARK); // 残りの単一改行をαマーク
 
-        let currentProcessedText = '';
-        let lastMatchIndex = 0; // 処理済みの部分のインデックス
+    let currentResult = '';
+    let currentLineLength = 0; // 現在処理中の「論理的な行」の文字数をカウント
 
-        // 段落全体をループし、指定範囲内の改行マーカーを削除
-        for (let i = 0; i < processedParagraph.length; i++) {
-            currentProcessedText += processedParagraph[i];
+    for (let i = 0; i < processedText.length; i++) {
+        const char = processedText[i];
 
-            // 改行マーカーが見つかった場合
-            if (currentProcessedText.endsWith('<LINE_BREAK>')) {
-                const effectiveLength = currentProcessedText.length - '<LINE_BREAK>'.length; // マーカーを含まない文字列の長さ
-
-                // マーカーの前の文字列の長さが指定範囲内かどうか、かつ末尾が句読点でないか
-                if (effectiveLength >= startChar && effectiveLength <= endChar) {
-                    const lastCharBeforeBreak = currentProcessedText.slice(0, effectiveLength).slice(-1);
-                    if (!/[、。？！）」』]/.test(lastCharBeforeBreak)) {
-                        // 句読点でないなら改行マーカーを削除（空文字に置換）
-                        currentProcessedText = currentProcessedText.slice(0, effectiveLength);
-                        // 次の行との間に半角スペースを入れるかはお好みで。今回はそのまま連結
-                    } else {
-                        // 句読点で終わるなら改行マーカーを本物の改行に戻す
-                        currentProcessedText = currentProcessedText.slice(0, effectiveLength) + '\n';
-                    }
+        if (char === LINE_BREAK_ALPHA_MARK[0] && processedText.substring(i, i + LINE_BREAK_ALPHA_MARK.length) === LINE_BREAK_ALPHA_MARK) {
+            // αマークが見つかった場合
+            // 直前の文字列長が指定範囲内にあるかチェック
+            if (currentLineLength >= startChar && currentLineLength <= endChar) {
+                // 句読点（、。？！）」』）で終わっていない場合にβマーク（削除対象）に変換
+                const lastNonAlphaChar = currentResult.slice(-1); // 現在の行の末尾文字
+                if (!/[、。？！）」』]/.test(lastNonAlphaChar)) {
+                    // ここでβマークに変換する代わりに、何も追加しない（つまり削除）
+                    // または、後で削除しやすいように別のマークに変換
+                    // 今回は、一時的に「削除対象マーク」を追加し、後で一括削除する
+                    currentResult += '{{DELETE_THIS_LINE_BREAK}}';
                 } else {
-                    // 指定範囲外なら改行マーカーを本物の改行に戻す
-                    currentProcessedText = currentProcessedText.slice(0, effectiveLength) + '\n';
+                    // 句読点で終わる場合は改行として残す（αマークをそのまま追加）
+                    currentResult += LINE_BREAK_ALPHA_MARK;
                 }
+            } else {
+                // 指定範囲外なのでαマークをそのまま追加（改行として残す）
+                currentResult += LINE_BREAK_ALPHA_MARK;
             }
+            // αマークを処理したら、次の行が始まるので、現在の行の長さをリセット
+            currentLineLength = 0;
+            i += LINE_BREAK_ALPHA_MARK.length - 1; // αマークの長さ分インデックスを進める
+        } else if (char === PARAGRAPH_SEP_MARK[0] && processedText.substring(i, i + PARAGRAPH_SEP_MARK.length) === PARAGRAPH_SEP_MARK) {
+            // 段落区切りマークが見つかった場合
+            // 直前のバッファに何かあれば確定
+            if (currentLineLength > 0) {
+                 // 強制的に改行として残す
+                 currentResult += LINE_BREAK_ALPHA_MARK; 
+            }
+            currentResult += PARAGRAPH_SEP_MARK; // 段落区切りマークをそのまま追加
+            currentLineLength = 0; // リセット
+            i += PARAGRAPH_SEP_MARK.length - 1; // マークの長さ分インデックスを進める
         }
-
-        // 最後の調整と、残っている内部マーカーを本物の改行に変換
-        currentProcessedText = currentProcessedText.replace(/<LINE_BREAK>/g, '\n');
-        resultText += currentProcessedText.trimEnd();
-
-        // 最終段落でなければ段落間に改行を追加
-        if (paragraphIndex < paragraphs.length - 1) {
-            resultText += '\n\n';
+        else {
+            // 通常の文字の場合
+            currentResult += char;
+            currentLineLength++;
         }
-    });
+    }
 
-    // 最終的な調整: 連続する空白の削除など
-    resultText = resultText.replace(/[ \t]+/g, ' ').trim(); 
-    document.getElementById('outputTextArea').value = resultText;
+    // 3. βマーク（削除対象マーク）を削除
+    currentResult = currentResult.replace(/{{DELETE_THIS_LINE_BREAK}}/g, '');
+
+    // 4. 残ったαマークを改行に、段落区切りマークを連続改行に戻す
+    currentResult = currentResult.replace(new RegExp(LINE_BREAK_ALPHA_MARK, 'g'), '\n');
+    currentResult = currentResult.replace(new RegExp(PARAGRAPH_SEP_MARK, 'g'), '\n\n');
+
+    // 最終的な調整: 連続する半角スペースを1つに、前後の空白を削除
+    currentResult = currentResult.replace(/[ \t]+/g, ' ').trim(); 
+    document.getElementById('outputTextArea').value = currentResult;
 }
