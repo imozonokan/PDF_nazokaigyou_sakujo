@@ -69,11 +69,16 @@
             background-color: #f8f9fa;
             border-radius: 8px;
             border: 1px solid #e9ecef;
+            display: flex; /* ボタンと入力欄を横並びにするため */
+            justify-content: center; /* 中央寄せ */
+            align-items: center; /* 垂直方向中央寄せ */
+            flex-wrap: wrap; /* 小さい画面で折り返す */
         }
         .controls label {
             display: inline-block; /* 横並びにするため */
             margin-right: 10px;
             font-size: 1.0em;
+            white-space: nowrap; /* ラベル内で改行しない */
         }
         input[type="number"] {
             padding: 10px;
@@ -86,7 +91,6 @@
         }
         button {
             padding: 12px 25px;
-            background-color: #28a745; /* 実行ボタンは緑色に */
             color: white;
             border: none;
             border-radius: 6px;
@@ -94,12 +98,93 @@
             font-size: 1.1em;
             font-weight: 600;
             transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-            margin-left: 20px;
+            margin-left: 15px; /* ボタン間の間隔 */
         }
-        button:hover {
-            background-color: #218838; /* ホバーで少し濃く */
+        button.execute {
+            background-color: #28a745; /* 実行ボタンは緑色 */
+        }
+        button.execute:hover {
+            background-color: #218838;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
+        button.copy {
+            background-color: #007bff; /* コピーボタンは青色 */
+        }
+        button.copy:hover {
+            background-color: #0056b3;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        button.reset {
+            background-color: #dc3545; /* リセットボタンは赤色 */
+        }
+        button.reset:hover {
+            background-color: #c82333;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 文字数カウント枠のスタイル */
+        .char-counter-section {
+            background-color: #e9f5ff; /* 水色の背景 */
+            border: 1px solid #b3d9ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+        .char-counter-section h2 {
+            text-align: center;
+            color: #0056b3;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1.3em;
+        }
+        .char-counter-section p {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #366;
+        }
+        .char-counter-area {
+            width: 100%;
+            height: 150px; /* 高さを指定 */
+            overflow-y: auto; /* スクロール可能に */
+            border: 1px solid #aaddff;
+            background-color: #ffffff;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Meiryo UI', 'Consolas', monospace;
+            line-height: 1.4;
+            tab-size: 4; /* タブの幅 */
+            white-space: pre-wrap; /* 改行を保持し、必要に応じて折り返す */
+            word-wrap: break-word; /* 長い単語を折り返す */
+        }
+        .char-counter-area span {
+            display: inline-block; /* マウスオーバーでの背景色変更のため */
+            padding-right: 2px; /* 行末のカウントが隠れないように */
+        }
+        .char-counter-area .line {
+            display: block; /* 行ごとに表示 */
+            position: relative;
+            padding-right: 60px; /* カウント表示のためのスペース */
+            cursor: help; /* ヘルプカーソル */
+        }
+        .char-counter-area .line:hover {
+            background-color: #d9edf7; /* ホバー時の背景色 */
+        }
+        .char-counter-area .line::after {
+            content: attr(data-char-count); /* 文字数カウントを表示 */
+            position: absolute;
+            right: 5px;
+            top: 0;
+            font-size: 0.8em;
+            color: #666;
+            font-weight: bold;
+            display: none; /* デフォルトでは非表示 */
+        }
+        .char-counter-area .line:hover::after {
+            display: block; /* ホバー時に表示 */
+        }
+
         @media (max-width: 768px) {
             .io-wrapper {
                 flex-direction: column;
@@ -113,14 +198,15 @@
             }
             .controls label,
             .controls input,
-            .controls span {
-                display: block;
-                margin-bottom: 10px;
-                text-align: center;
-            }
-            button {
+            .controls span,
+            .controls button {
                 margin-left: 0;
-                margin-top: 10px;
+                margin-right: 0;
+                margin-bottom: 10px;
+                width: auto;
+            }
+            .controls button {
+                width: calc(100% - 20px); /* ボタンの幅を調整 */
             }
         }
     </style>
@@ -129,9 +215,19 @@
     <div class="container">
         <h1>PDFからコピペした文章の改行を整理</h1>
         
+        <!-- 文字数カウント枠 -->
+        <div class="char-counter-section">
+            <h2>文字数カウント（目安）</h2>
+            <p>ここに文章を貼り付けて、マウスを乗せる（またはクリックする）と、各行の文字数を表示します。</p>
+            <div id="charCounterArea" class="char-counter-area" contenteditable="true" 
+                 oninput="updateCharCountDisplay()" onkeyup="updateCharCountDisplay()">
+                ここにPDFからコピーした文章を貼り付けてください。
+            </div>
+        </div>
+
         <div class="io-wrapper">
             <div>
-                <label for="inputTextArea">入力テキスト (PDFから貼り付け)</label>
+                <label for="inputTextArea">入力テキスト (処理対象)</label>
                 <textarea id="inputTextArea" placeholder="ここにPDFからコピーした文章を貼り付けてください。"></textarea>
             </div>
             <div>
@@ -147,7 +243,9 @@
                 <input type="number" id="endCharCountInput" value="30" min="1">
                 <span>文字目ごとの直後の改行を削除</span>
             </label>
-            <button onclick="removePdfLineBreaks()">実行</button>
+            <button class="execute" onclick="removePdfLineBreaks()">実行</button>
+            <button class="copy" onclick="copyOutputText()">出力結果をコピー</button>
+            <button class="reset" onclick="resetTextAreas()">リセット</button>
         </div>
     </div>
 
