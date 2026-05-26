@@ -42,7 +42,7 @@ function removePdfLineBreaks() {
                 if (currentBuffer.length >= startChar && currentBuffer.length <= endChar) {
                     // 末尾が句読点でない場合に改行を削除して結合
                     const lastChar = currentBuffer.slice(-1);
-                    if (!/[、。？！）」』]/.test(lastChar)) {
+                    if (!/[、。？！）」』]/.test(lastChar)) { // この正規表現に余分な括弧がないことを確認
                         currentBuffer += trimmedLine; // 改行なしで結合
                     } else {
                         // 句読点で終わる場合は、一旦バッファを確定して改行し、新しい行を開始
