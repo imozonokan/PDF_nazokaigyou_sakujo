@@ -3,85 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF改行削除ツール</title>
+    <title>PDF改行整理ツール</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
             color: #333;
+            line-height: 1.6;
         }
         .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 1000px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e0e0e0;
         }
         h1 {
             text-align: center;
-            color: #0056b3;
-        }
-textarea {
-                width: calc(50% - 15px); /* 画面を2分割、間に少し隙間 */
-                height: 300px;
-                padding: 10px;
-                margin: 5px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                vertical-align: top;
-                box-sizing: border-box;
-            }
-            .io-wrapper { /* これも追加または修正 */
-                display: flex;
-                justify-content: space-around; /* 間隔を広めに */
-                margin-bottom: 10px;
-            }
-            .io-wrapper > div { /* これも追加または修正 */
-                width: 48%; /* 各テキストエリアの幅を調整 */
-            }
-            .controls input[type="number"] { /* 数字入力欄の幅を調整 */
-                width: 60px; /* 数字入力欄の幅を小さく */
-                text-align: center;
-            }
-        .controls {
-            text-align: center;
-            margin: 20px 0;
-        }
-        input[type="number"] {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #0056b3;
+            color: #007bff;
+            margin-bottom: 30px;
+            font-weight: 600;
         }
         .io-wrapper {
-            display: flex; /* テキストエリアを横並びにする */
+            display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
+            gap: 20px; /* テキストエリア間の隙間 */
+            margin-bottom: 25px;
+        }
+        .io-wrapper > div {
+            flex: 1; /* 各テキストエリアが均等な幅を占める */
+            display: flex;
+            flex-direction: column;
         }
         label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 1.1em;
+        }
+        textarea {
+            width: 100%;
+            height: 350px;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1em;
+            resize: vertical; /* 縦方向のみリサイズ可能 */
+            box-sizing: border-box; /* paddingとborderをwidthに含める */
+            font-family: 'Meiryo UI', 'Consolas', monospace; /* 見やすいフォント */
+        }
+        textarea:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px 0;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .controls label {
+            display: inline-block; /* 横並びにするため */
+            margin-right: 10px;
+            font-size: 1.0em;
+        }
+        input[type="number"] {
+            padding: 10px;
+            width: 70px; /* 数字入力欄の幅を調整 */
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 1em;
+            margin: 0 5px; /* ラベルとの間隔 */
+        }
+        button {
+            padding: 12px 25px;
+            background-color: #28a745; /* 実行ボタンは緑色に */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            margin-left: 20px;
+        }
+        button:hover {
+            background-color: #218838; /* ホバーで少し濃く */
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        @media (max-width: 768px) {
+            .io-wrapper {
+                flex-direction: column;
+            }
+            .io-wrapper > div {
+                width: 100%;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            .controls label,
+            .controls input,
+            .controls span {
+                display: block;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+            button {
+                margin-left: 0;
+                margin-top: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>PDF改行削除ツール</h1>
+        <h1>PDFからコピペした文章の改行を整理</h1>
         
         <div class="io-wrapper">
             <div>
@@ -94,16 +140,18 @@ textarea {
             </div>
         </div>
 
-<div class="controls">
-                <label for="startCharCountInput">改行を削除する範囲:</label>
+        <div class="controls">
+            <label>
                 <input type="number" id="startCharCountInput" value="28" min="1">
                 <span>文字目～</span>
                 <input type="number" id="endCharCountInput" value="30" min="1">
-                <span>文字目ごとの改行を削除</span>
-                <button onclick="removePdfLineBreaks()">実行</button>
-            </div>
+                <span>文字目ごとの直後の改行を削除</span>
+            </label>
+            <button onclick="removePdfLineBreaks()">実行</button>
+        </div>
     </div>
 
+    <!-- JavaScriptファイルをここで読み込む -->
     <script src="script.js"></script>
 </body>
 </html>
