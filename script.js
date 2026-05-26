@@ -1,62 +1,69 @@
 function removePdfLineBreaks() {
     const inputText = document.getElementById('inputTextArea').value;
-    const specifiedLength = parseInt(document.getElementById('charCountInput').value);
+    const startChar = parseInt(document.getElementById('startCharCountInput').value);
+    const endChar = parseInt(document.getElementById('endCharCountInput').value);
 
-    if (isNaN(specifiedLength) || specifiedLength <= 0) {
-        alert('有効な文字数を入力してください (1以上の半角数字)。');
+    if (isNaN(startChar) || startChar <= 0 || isNaN(endChar) || endChar <= 0) {
+        alert('有効な開始文字数と終了文字数を入力してください (1以上の半角数字)。');
+        return;
+    }
+    if (startChar > endChar) {
+        alert('開始文字数は終了文字数以下にしてください。');
         return;
     }
 
-    // まず、余分なスペースやタブ、連続する改行を整理します。
-    // PDFからのコピーでは、余計な空白が混じることが多いため。
-    let cleanedText = inputText.replace(/[ 　\t]+/g, ' ').replace(/\r\n|\r/g, '\n');
-    // 連続する2つ以上の改行は、段落の区切りとして残し、それ以外は1つにまとめる
-    cleanedText = cleanedText.replace(/\n{2,}/g, '\n\n'); 
-    
-    let result = '';
-    let currentBuffer = ''; // 指定文字数までの一時的な文字列
+    let resultText = '';
+    let currentLine = '';
 
-    // 段落ごとに処理するために、一旦連続する改行で分割する
-    const paragraphs = cleanedText.split('\n\n');
+    // まず、連続する改行を段落区切りとして残し、単一の改行は一時的に目印に変換
+    // 例: "a\nb\n\nc\nd" -> "a<BR>b\n\nc<BR>d"
+    // これにより、段落間の改行は保持しつつ、途中の改行を処理しやすくする
+    const processedInput = inputText.replace(/\r\n|\r/g, '\n') // CRLFやCRをLFに統一
+                                  .replace(/\n\n+/g, '<PARA_BREAK>'); // 2つ以上の連続改行を段落区切りマークに
 
-    paragraphs.forEach(paragraph => {
-        // 各段落内で、短い改行を削除していく
-        let tempParagraph = '';
-        const linesInParagraph = paragraph.split('\n');
+    const lines = processedInput.split('\n'); // 一旦、単一改行で分割
 
-        linesInParagraph.forEach((line, index) => {
-            const trimmedLine = line.trim(); // 行頭・行末の空白を削除
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
 
-            // バッファと現在の行を結合したときに指定文字数を超えないかチェック
-            // ただし、空行の場合はスキップ
-            if (trimmedLine === '') {
-                // 空行はそのまま処理せず、後で段落区切りとして扱う
-            } else if ((tempParagraph.length + trimmedLine.length <= specifiedLength) || tempParagraph === '') {
-                // バッファが空、または指定文字数以内なら結合
-                tempParagraph += trimmedLine;
-            } else {
-                // 指定文字数を超えそうになった場合
-                // tempParagraph の末尾が句読点でないなら、改行を削除してつなげる
-                const lastCharOfBuffer = tempParagraph.slice(-1);
-                if (!/[、。？！）」』])/.test(lastCharOfBuffer)) {
-                    result += tempParagraph + ''; // 改行を削除して結合
-                } else {
-                    result += tempParagraph + '\n'; // 句読点で終わるなら改行
-                }
-                tempParagraph = trimmedLine; // 新しい行をバッファに入れる
-            }
-        });
-        
-        // 段落の最後のバッファ内容を追加
-        if (tempParagraph !== '') {
-            result += tempParagraph;
+        // 段落区切りマークを見つけたら、そこで区切って処理し、バッファをリセット
+        if (line.includes('<PARA_BREAK>')) {
+            const parts = line.split('<PARA_BREAK>');
+            currentLine += parts[0]; // マークの前の部分を現在の行に追加
+            resultText += currentLine.trimEnd() + '\n\n'; // 現在の行を確定し、段落区切りを追加
+            currentLine = parts[1]; // マークの後の部分から新しい行を開始
+            continue;
         }
-        // 各段落の最後に区切りの改行を追加
-        result += '\n\n';
-    });
 
-    // 最後の余分な改行を削除
-    result = result.trimEnd();
+        // 現在の行が、指定された文字数範囲内に収まる場合
+        // ただし、行の末尾が句読点や閉じ括弧などでない場合にのみ改行を削除する
+        // (PDFからのコピペは、多くの場合、単語の途中で改行が入るため、これを結合したい)
+        if (currentLine.length > 0 && 
+            currentLine.length >= startChar && 
+            currentLine.length <= endChar) 
+        {
+            // currentLineの末尾が「、。」などの句読点や閉じ括弧でないかを確認
+            const lastChar = currentLine.slice(-1);
+            if (!/[、。？！）」』]/.test(lastChar)) {
+                // 句読点でないなら改行を削除して連結
+                currentLine += line; // 現在の行に次の行を追加
+            } else {
+                // 句読点で終わるなら、ここで改行を確定
+                resultText += currentLine.trimEnd() + '\n';
+                currentLine = line; // 新しい行を開始
+            }
+        } else {
+            // 文字数範囲外の場合、またはまだ範囲に達していない場合
+            currentLine += line;
+        }
 
-    document.getElementById('outputTextArea').value = result;
+        // 最後の行の処理 (ループの最後、または次の行が最後の<PARA_BREAK>の場合)
+        if (i === lines.length - 1) {
+            resultText += currentLine.trimEnd();
+        }
+    }
+
+    // 最終的な調整: 連続する空白を1つにするなど (任意)
+    resultText = resultText.replace(/[ 　\t]+/g, ' ').replace(/\n[ \t]*/g, '\n').replace(/\n{3,}/g, '\n\n');
+    document.getElementById('outputTextArea').value = resultText;
 }
