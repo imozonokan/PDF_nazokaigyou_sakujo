@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF改行整理ツール</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Segoe UI', 'Arial', sans-serif;
@@ -62,6 +64,11 @@
             box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
             outline: none;
         }
+        /* 入力/出力テキストエリアのプレースホルダーを灰色にする */
+        textarea::placeholder {
+            color: #aaa;
+        }
+
         .controls {
             text-align: center;
             margin-top: 20px;
@@ -89,16 +96,37 @@
             font-size: 1em;
             margin: 0 5px; /* ラベルとの間隔 */
         }
+        /* 数値入力欄のプレースホルダーを灰色にする */
+        input[type="number"]::placeholder {
+            color: #aaa;
+        }
+
+        .action-buttons-wrapper {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-top: 10px; /* テキストエリアとボタンの間に少しスペース */
+        }
+        .action-buttons-wrapper > div {
+            flex: 1; /* 各ボタンが均等な幅を占める */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* ボタンを左寄せ */
+        }
+
         button {
-            padding: 12px 25px;
+            padding: 8px 15px; /* ボタンのサイズを小さめに */
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 1.1em;
+            font-size: 0.9em; /* フォントサイズも小さめに */
             font-weight: 600;
             transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-            margin-left: 15px; /* ボタン間の間隔 */
+            margin-top: 5px; /* テキストエリアからの上マージン */
+            display: flex; /* アイコンとテキストを横並びにするため */
+            align-items: center; /* 垂直方向中央寄せ */
+            gap: 5px; /* アイコンとテキストの間隔 */
         }
         button.execute {
             background-color: #28a745; /* 実行ボタンは緑色 */
@@ -107,18 +135,14 @@
             background-color: #218838;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
+        /* リセットボタンとコピーボタンを濃いグレーに */
+        button.reset,
         button.copy {
-            background-color: #007bff; /* コピーボタンは青色 */
+            background-color: #6c757d; /* 濃いグレー */
         }
+        button.reset:hover,
         button.copy:hover {
-            background-color: #0056b3;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        }
-        button.reset {
-            background-color: #dc3545; /* リセットボタンは赤色 */
-        }
-        button.reset:hover {
-            background-color: #c82333;
+            background-color: #5a6268;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
@@ -157,6 +181,13 @@
             tab-size: 4; /* タブの幅 */
             white-space: pre-wrap; /* 改行を保持し、必要に応じて折り返す */
             word-wrap: break-word; /* 長い単語を折り返す */
+            position: relative; /* プレースホルダー表示のため */
+        }
+        /* 文字数カウントエリアのプレースホルダー */
+        .char-counter-area:empty:before {
+            content: "ここにPDFからコピーした文章を貼り付けてください。";
+            color: #aaa;
+            cursor: text;
         }
         .char-counter-area span {
             display: inline-block; /* マウスオーバーでの背景色変更のため */
@@ -185,6 +216,26 @@
             display: block; /* ホバー時に表示 */
         }
 
+        /* コピー成功メッセージのスタイル */
+        .copy-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            font-size: 0.9em;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .copy-message.show {
+            opacity: 1;
+        }
+
         @media (max-width: 768px) {
             .io-wrapper {
                 flex-direction: column;
@@ -208,6 +259,13 @@
             .controls button {
                 width: calc(100% - 20px); /* ボタンの幅を調整 */
             }
+            .action-buttons-wrapper {
+                flex-direction: column;
+            }
+            .action-buttons-wrapper > div {
+                width: 100%;
+                align-items: center;
+            }
         }
     </style>
 </head>
@@ -218,10 +276,10 @@
         <!-- 文字数カウント枠 -->
         <div class="char-counter-section">
             <h2>文字数カウント（目安）</h2>
-            <p>ここに文章を貼り付けて、マウスを乗せる（またはクリックする）と、各行の文字数を表示します。</p>
+            <p>ここに文章を貼り付けて、マウスを乗せる（またはクリックする）と、各行の文字数を表示します。<br>
+               <span style="font-weight: bold; color: #d9534f;">平均文字数の±2～3行で計算すると良い感じなことが多いです</span></p>
             <div id="charCounterArea" class="char-counter-area" contenteditable="true" 
                  oninput="updateCharCountDisplay()" onkeyup="updateCharCountDisplay()">
-                ここにPDFからコピーした文章を貼り付けてください。
             </div>
         </div>
 
@@ -229,24 +287,31 @@
             <div>
                 <label for="inputTextArea">入力テキスト (処理対象)</label>
                 <textarea id="inputTextArea" placeholder="ここにPDFからコピーした文章を貼り付けてください。"></textarea>
+                <!-- リセットボタンの移動 -->
+                <button class="reset" onclick="resetTextAreas()"><i class="fas fa-redo"></i> リセット</button>
             </div>
             <div>
                 <label for="outputTextArea">出力テキスト</label>
-                <textarea id="outputTextArea" readonly placeholder="変換結果がここに表示されます。"></textarea>
+                <textarea id="outputTextArea" placeholder="変換結果がここに表示されます。"></textarea>
+                <!-- コピーボタンの移動 -->
+                <button class="copy" onclick="copyOutputText()"><i class="fas fa-copy"></i> 出力結果をコピー</button>
             </div>
         </div>
 
         <div class="controls">
             <label>
-                <input type="number" id="startCharCountInput" value="28" min="1">
+                <input type="number" id="startCharCountInput" placeholder="28" min="1">
                 <span>文字目～</span>
-                <input type="number" id="endCharCountInput" value="30" min="1">
+                <input type="number" id="endCharCountInput" placeholder="30" min="1">
                 <span>文字目ごとの直後の改行を削除</span>
             </label>
-            <button class="execute" onclick="removePdfLineBreaks()">実行</button>
-            <button class="copy" onclick="copyOutputText()">出力結果をコピー</button>
-            <button class="reset" onclick="resetTextAreas()">リセット</button>
+            <button class="execute" onclick="removePdfLineBreaks()"><i class="fas fa-play"></i> 実行</button>
         </div>
+    </div>
+
+    <!-- コピー成功メッセージ -->
+    <div id="copyMessage" class="copy-message">
+        <i class="fas fa-check-circle"></i> クリップボードにコピーしました！
     </div>
 
     <!-- JavaScriptファイルをここで読み込む -->
