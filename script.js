@@ -8,8 +8,9 @@ const DELETE_TARGET_MARK = '{{DELETE_LB}}'; // 削除対象の改行マーク
  */
 function removePdfLineBreaks() {
     const inputText = document.getElementById('inputTextArea').value;
-    const startChar = parseInt(document.getElementById('startCharCountInput').value);
-    const endChar = parseInt(document.getElementById('endCharCountInput').value);
+    // 空欄の場合はデフォルト値を使用
+    const startChar = parseInt(document.getElementById('startCharCountInput').value || '28'); 
+    const endChar = parseInt(document.getElementById('endCharCountInput').value || '30');
 
     // 入力値のバリデーション
     if (isNaN(startChar) || startChar < 1 || isNaN(endChar) || endChar < 1) {
@@ -98,9 +99,16 @@ function removePdfLineBreaks() {
 function copyOutputText() {
     const outputTextArea = document.getElementById('outputTextArea');
     outputTextArea.select(); // テキストエリアのテキストを選択
+    // モバイルデバイスでselectionStart/Endが機能しない場合を考慮してtry-catch
+    try {
+        outputTextArea.setSelectionRange(0, 99999); // モバイルデバイス向け
+    } catch (e) {
+        // Do nothing
+    }
+
     navigator.clipboard.writeText(outputTextArea.value) // クリップボードにコピー
         .then(() => {
-            alert('出力結果をクリップボードにコピーしました！');
+            showCopyMessage(); // ポップアップではなくメッセージを表示
         })
         .catch(err => {
             console.error('コピーに失敗しました:', err);
@@ -109,12 +117,27 @@ function copyOutputText() {
 }
 
 /**
+ * コピー成功メッセージを表示する関数
+ */
+function showCopyMessage() {
+    const copyMessage = document.getElementById('copyMessage');
+    copyMessage.classList.add('show');
+    setTimeout(() => {
+        copyMessage.classList.remove('show');
+    }, 2000); // 2秒後にメッセージを非表示にする
+}
+
+/**
  * 入力と出力のテキストエリアをリセットする関数
  */
 function resetTextAreas() {
     document.getElementById('inputTextArea').value = '';
     document.getElementById('outputTextArea').value = '';
-    document.getElementById('charCounterArea').innerHTML = 'ここにPDFからコピーした文章を貼り付けてください。'; // カウントエリアもリセット
+    // 文字数カウントエリアの内容もリセットし、プレースホルダーを表示
+    document.getElementById('charCounterArea').innerHTML = ''; 
+    // 数値入力欄もリセット
+    document.getElementById('startCharCountInput').value = '';
+    document.getElementById('endCharCountInput').value = '';
 }
 
 /**
@@ -130,14 +153,16 @@ function updateCharCountDisplay() {
     
     let htmlContent = '';
     lines.forEach(line => {
-        // 文字列の末尾に全角スペースなどがある場合も考慮し、trimEnd()を使用
         const trimmedLine = line.trimEnd(); 
         const charCount = trimmedLine.length;
-        // data-char-count 属性に文字数を持たせ、CSSの::afterで表示
-        // HTMLエンティティ化してXSS対策
         htmlContent += `<span class="line" data-char-count="${charCount}文字">${escapeHtml(line)}</span>`;
     });
     charCounterArea.innerHTML = htmlContent;
+
+    // もしエリアが空になったら、プレースホルダーのように表示する
+    if (rawText.trim() === "") {
+        charCounterArea.innerHTML = ''; // contenteditableが空の状態にする
+    }
 }
 
 /**
