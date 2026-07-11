@@ -9,7 +9,10 @@ const DELETE_TARGET_MARK = '{{DELETE_LB}}'; // 削除対象の改行マーク
 function removePdfLineBreaks() {
     const inputText = document.getElementById('inputTextArea').value;
     
-    // 未入力時は出力を空にして終了
+    // 入力テキストの変化に合わせて文字数カウント表示もリアルタイム更新
+    updateCharCountDisplay(inputText);
+
+    // 空欄の場合は出力テキストを空にして終了
     if (!inputText) {
         document.getElementById('outputTextArea').value = '';
         return;
@@ -19,7 +22,7 @@ function removePdfLineBreaks() {
     const startChar = parseInt(document.getElementById('startCharCountInput').value || '28'); 
     const endChar = parseInt(document.getElementById('endCharCountInput').value || '30');
 
-    // リアルタイム処理のため、不正な数値入力時は処理を行わずに中断（アラートは出さない）
+    // リアルタイム処理のため、不正な数値入力時は処理を行わずに中断
     if (isNaN(startChar) || startChar < 1 || isNaN(endChar) || endChar < 1 || startChar > endChar) {
         return;
     }
@@ -129,33 +132,46 @@ function showCopyMessage() {
 }
 
 /**
- * 入力と出力のテキストエリアをリセットする関数 (文字数カウントエリアや設定値はリセットしない)
+ * 入力と出力のテキストエリアをリセットする関数 (文字数カウント設定値は維持)
  */
 function resetTextAreas() {
     document.getElementById('inputTextArea').value = '';
     document.getElementById('outputTextArea').value = '';
+    
+    // 入力のクリアに合わせて、文字数カウント表示も連動して初期化
+    updateCharCountDisplay('');
 }
 
 /**
  * 文字数カウント表示を更新する関数
+ * @param {string} rawText 解析対象の文字列
  */
-function updateCharCountDisplay() {
+function updateCharCountDisplay(rawText) {
     const charCounterArea = document.getElementById('charCounterArea');
-    const rawText = charCounterArea.innerText; // contenteditableのテキストを取得
+    if (!charCounterArea) return;
+
+    const hasContent = rawText && rawText.trim() !== "";
+
+    if (!hasContent) {
+        charCounterArea.innerHTML = '';
+        const maxDisplay = document.getElementById('maxCharCountDisplay');
+        if (maxDisplay) {
+            maxDisplay.textContent = '最大文字数：0';
+        }
+        return;
+    }
 
     // 改行コードを統一し、余分な空白を整理
     const lines = rawText.replace(/\r\n|\r/g, '\n').split('\n');
     
     let htmlContent = '';
     let maxCharCount = 0;
-    const hasContent = rawText.trim() !== "";
 
     lines.forEach(line => {
         const trimmedLine = line.trimEnd(); 
         const charCount = trimmedLine.length;
         
-        // 貼り付けられている時のみ最大文字数の判定を行う
-        if (hasContent && charCount > maxCharCount) {
+        if (charCount > maxCharCount) {
             maxCharCount = charCount;
         }
 
@@ -166,12 +182,7 @@ function updateCharCountDisplay() {
     // 最大文字数の表示を更新
     const maxDisplay = document.getElementById('maxCharCountDisplay');
     if (maxDisplay) {
-        maxDisplay.textContent = `最大文字数：${hasContent ? maxCharCount : 0}`;
-    }
-
-    // もしエリアが空になったら、プレースホルダーのように表示する
-    if (!hasContent) {
-        charCounterArea.innerHTML = ''; // contenteditableが空の状態にする
+        maxDisplay.textContent = `最大文字数：${maxCharCount}`;
     }
 }
 
@@ -184,18 +195,17 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// ページロード時にカウントエリアの初期表示を更新し、リアルタイム用のイベントリスナーを登録
+// ページロード時にリアルタイム用のイベントリスナーを登録
 window.onload = function() {
-    updateCharCountDisplay();
-
-    // リアルタイム動作用イベントリスナー
     const inputTextArea = document.getElementById('inputTextArea');
     const startCharCountInput = document.getElementById('startCharCountInput');
     const endCharCountInput = document.getElementById('endCharCountInput');
 
+    // 「入力テキスト」に入力・貼り付けされたらリアルタイムに実行
     if (inputTextArea) {
         inputTextArea.addEventListener('input', removePdfLineBreaks);
     }
+    // 「開始文字数・終了文字数」が変更されたらリアルタイムに実行
     if (startCharCountInput) {
         startCharCountInput.addEventListener('input', removePdfLineBreaks);
     }
