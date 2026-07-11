@@ -285,16 +285,15 @@
             <div id="maxCharDisplay">最大文字数：0</div>
             <p>ここに文章を貼り付けると、各行の文字数を表示します。<br>
                <span style="font-weight: bold; color: #d9534f;">平均文字数の±2～3行で計算すると良い感じなことが多いです</span></p>
-            <!-- 修正: contenteditableのイベントを正確に拾うため、input と keyup を指定 -->
-            <div id="charCounterArea" class="char-counter-area" contenteditable="true" 
-                 oninput="handleCounterInput()" onkeyup="handleCounterInput()">
-            </div>
+            <!-- 修正: イベントリスナーを正確に設定 -->
+            <div id="charCounterArea" class="char-counter-area" contenteditable="true"></div>
         </div>
 
         <div class="io-wrapper">
             <div>
                 <label for="inputTextArea">入力テキスト (処理対象)</label>
-                <textarea id="inputTextArea" placeholder="ここにPDFからコピーした文章を貼り付けてください。" oninput="autoProcess()"></textarea>
+                <!-- 修正: 関数名を統一 -->
+                <textarea id="inputTextArea" placeholder="ここにPDFからコピーした文章を貼り付けてください。"></textarea>
                 <button class="reset" onclick="resetInputOutput()"><i class="fas fa-redo"></i> リセット</button>
             </div>
             <div>
@@ -306,9 +305,9 @@
 
         <div class="controls">
             <label>
-                <input type="number" id="startCharCountInput" placeholder="28" min="1" oninput="autoProcess()">
+                <input type="number" id="startCharCountInput" placeholder="28" min="1">
                 <span>文字目～</span>
-                <input type="number" id="endCharCountInput" placeholder="30" min="1" oninput="autoProcess()">
+                <input type="number" id="endCharCountInput" placeholder="30" min="1">
                 <span>文字目ごとの直後の改行を削除</span>
             </label>
         </div>
@@ -318,6 +317,7 @@
         <i class="fas fa-check-circle"></i> クリップボードにコピーしました！
     </div>
 
+    <!-- 修正: script.js を読み込む -->
     <script src="script.js"></script>
 </body>
 </html>
