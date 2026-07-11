@@ -200,19 +200,18 @@
         }
         /* 文字数カウントエリアのプレースホルダー */
         .char-counter-area:empty:before {
-            content: "ここにPDFからコピーした文章を貼り付けてください。";
+            content: "下部の「入力テキスト」に文章を貼り付けると、ここに各行の文字数がカウントされます。";
             color: #aaa;
-            cursor: text;
+            cursor: default;
         }
         .char-counter-area span {
-            display: inline-block; /* マウスオーバーでの背景色変更のため */
+            display: inline-block; /* 背景色変更のため */
             padding-right: 2px; /* 行末のカウントが隠れないように */
         }
         .char-counter-area .line {
             display: block; /* 行ごとに表示 */
             position: relative;
             padding-right: 60px; /* カウント表示のためのスペース */
-            cursor: help; /* ヘルプカーソル */
         }
         .char-counter-area .line:hover {
             background-color: #d9edf7; /* ホバー時の背景色 */
@@ -225,7 +224,7 @@
             font-size: 0.8em;
             color: #666;
             font-weight: bold;
-            display: block; /* 常に表示に変更 */
+            display: block; /* 常に文字数を表示 */
         }
 
         /* コピー成功メッセージのスタイル */
@@ -302,24 +301,22 @@
         <div class="char-counter-section">
             <div id="maxCharCountDisplay" class="max-char-display">最大文字数：0</div>
             <h2>文字数カウント（目安）</h2>
-            <p>ここに文章を貼り付けると、各行の文字数を常に表示します。<br>
+            <p>下の「入力テキスト」に文章を貼り付けると、ここに各行の文字数を常に表示します。<br>
                <span style="font-weight: bold; color: #d9534f;">平均文字数の±2～3行で計算すると良い感じなことが多いです</span></p>
-            <div id="charCounterArea" class="char-counter-area" contenteditable="true" 
-                 oninput="updateCharCountDisplay()" onkeyup="updateCharCountDisplay()">
-            </div>
+            <div id="charCounterArea" class="char-counter-area"></div>
         </div>
 
         <div class="io-wrapper">
             <div>
                 <label for="inputTextArea">入力テキスト (処理対象)</label>
                 <textarea id="inputTextArea" placeholder="ここにPDFからコピーした文章を貼り付けてください。"></textarea>
-                <!-- リセットボタンの移動 -->
+                <!-- リセットボタン -->
                 <button class="reset" onclick="resetTextAreas()"><i class="fas fa-redo"></i> リセット</button>
             </div>
             <div>
                 <label for="outputTextArea">出力テキスト</label>
                 <textarea id="outputTextArea" placeholder="変換結果がここに表示されます。"></textarea>
-                <!-- コピーボタンの移動 -->
+                <!-- コピーボタン -->
                 <button class="copy" onclick="copyOutputText()"><i class="fas fa-copy"></i> 出力結果をコピー</button>
             </div>
         </div>
