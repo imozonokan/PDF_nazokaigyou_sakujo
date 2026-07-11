@@ -141,7 +141,6 @@
             right: 15px;
         }
 
-        /* 文字数カウント枠のスタイル更新 */
         .char-counter-section {
             background-color: #e9f5ff;
             border: 1px solid #b3d9ff;
@@ -152,7 +151,7 @@
             max-width: 900px;
             margin-left: auto;
             margin-right: auto;
-            position: relative; /* 最大文字数表示の基準 */
+            position: relative;
         }
         .char-counter-section h2 {
             text-align: center;
@@ -167,7 +166,6 @@
             margin-bottom: 15px;
             color: #366;
         }
-        /* 最大文字数の表示スタイル */
         #maxCharDisplay {
             position: absolute;
             top: 10px;
@@ -203,11 +201,10 @@
             cursor: text;
         }
         
-        /* 行ごとのスタイル更新（常に表示） */
         .char-counter-area .line {
             display: block;
             position: relative;
-            padding-right: 50px; /* カウント表示のためのスペース */
+            padding-right: 50px;
         }
         
         .char-counter-area .line::after {
@@ -216,12 +213,10 @@
             right: 5px;
             top: 0;
             font-size: 0.8em;
-            color: #888; /* 少し薄い色に */
+            color: #888;
             font-weight: bold;
-            /* display: none; を削除し、常に表示 */
         }
         
-        /* ホバー時は背景色だけ変える */
         .char-counter-area .line:hover {
             background-color: #edf7ff;
         }
@@ -285,21 +280,20 @@
     <div class="container">
         <h1>PDFからコピペした文章の改行を整理</h1>
         
-        <!-- 文字数カウント枠 -->
         <div class="char-counter-section">
             <h2>文字数カウント（目安）</h2>
             <div id="maxCharDisplay">最大文字数：0</div>
             <p>ここに文章を貼り付けると、各行の文字数を表示します。<br>
                <span style="font-weight: bold; color: #d9534f;">平均文字数の±2～3行で計算すると良い感じなことが多いです</span></p>
+            <!-- 修正: contenteditableのイベントを正確に拾うため、input と keyup を指定 -->
             <div id="charCounterArea" class="char-counter-area" contenteditable="true" 
-                 oninput="handleCounterInput()" onpaste="handleCounterPaste()">
+                 oninput="handleCounterInput()" onkeyup="handleCounterInput()">
             </div>
         </div>
 
         <div class="io-wrapper">
             <div>
                 <label for="inputTextArea">入力テキスト (処理対象)</label>
-                <!-- リアルタイム処理のため input イベントを追加 -->
                 <textarea id="inputTextArea" placeholder="ここにPDFからコピーした文章を貼り付けてください。" oninput="autoProcess()"></textarea>
                 <button class="reset" onclick="resetInputOutput()"><i class="fas fa-redo"></i> リセット</button>
             </div>
@@ -312,12 +306,11 @@
 
         <div class="controls">
             <label>
-                <input type="number" id="startCharCountInput" placeholder="28" min="1">
+                <input type="number" id="startCharCountInput" placeholder="28" min="1" oninput="autoProcess()">
                 <span>文字目～</span>
-                <input type="number" id="endCharCountInput" placeholder="30" min="1">
+                <input type="number" id="endCharCountInput" placeholder="30" min="1" oninput="autoProcess()">
                 <span>文字目ごとの直後の改行を削除</span>
             </label>
-            <!-- 実行ボタンは削除しました -->
         </div>
     </div>
 
