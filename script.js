@@ -1,4 +1,4 @@
-// αマークと段落区切りマークの定数（HTMLと合わせる必要なし、JS内部でのみ使用）
+// αマークと段落区切りマークの定数（JS内部でのみ使用）
 const LINE_BREAK_ALPHA_MARK = '{{LB_ALPHA}}'; // 単一改行の仮マーク
 const PARAGRAPH_SEP_MARK = '{{PARAGRAPH_SEP}}'; // 連続改行の仮マーク
 const DELETE_TARGET_MARK = '{{DELETE_LB}}'; // 削除対象の改行マーク
@@ -7,7 +7,6 @@ const DELETE_TARGET_MARK = '{{DELETE_LB}}'; // 削除対象の改行マーク
  * 入力エリアの文字が変わったときに自動実行する関数
  */
 function autoProcess() {
-    // 実際の処理を実行
     processText();
 }
 
@@ -16,14 +15,10 @@ function autoProcess() {
  */
 function processText() {
     const inputText = document.getElementById('inputTextArea').value;
-    // 空欄の場合はデフォルト値を使用
     const startChar = parseInt(document.getElementById('startCharCountInput').value || '28'); 
     const endChar = parseInt(document.getElementById('endCharCountInput').value || '30');
 
-    // 入力値のバリデーション
     if (isNaN(startChar) || startChar < 1 || isNaN(endChar) || endChar < 1) {
-        // 設定値がおかしい場合は処理しない（またはデフォルトで動かすかはお好みで）
-        // ここでは何もしないでおきます
         return;
     }
     if (startChar > endChar) {
@@ -31,18 +26,15 @@ function processText() {
         return;
     }
 
-    // 1. CRLF, CRをLFに統一し、全角スペースを半角スペースに変換
     let processedText = inputText.replace(/\r\n|\r/g, '\n').replace(/　/g, ' ');
 
-    // 2. 連続する2つ以上の改行を段落区切りマークに、単一改行をαマークに変換
     processedText = processedText.replace(/\n\n+/g, PARAGRAPH_SEP_MARK); 
     processedText = processedText.replace(/\n/g, LINE_BREAK_ALPHA_MARK);
 
-    let currentResult = ''; // 処理中の出力文字列
-    let currentLogicalLineLength = 0; // 現在構築中の「論理的な行」の文字数（マークを含まない）
+    let currentResult = ''; 
+    let currentLogicalLineLength = 0; 
 
     for (let i = 0; i < processedText.length; i++) {
-        // 現在の文字またはマークを判定
         const char = processedText[i];
         let matchedMark = null;
 
@@ -53,54 +45,38 @@ function processText() {
         }
 
         if (matchedMark) {
-            // マークが見つかった場合
             if (matchedMark === LINE_BREAK_ALPHA_MARK) {
-                // αマークの場合
                 if (currentLogicalLineLength >= startChar && currentLogicalLineLength <= endChar) {
-                    // 指定範囲内的長さの場合
-                    const lastCharBeforeMark = currentResult.slice(-1); // 直前の文字
-                    // 句読点でない場合は削除対象マークに変換
+                    const lastCharBeforeMark = currentResult.slice(-1);
                     if (!/[、。？！）」』]/.test(lastCharBeforeMark)) {
                         currentResult += DELETE_TARGET_MARK;
                     } else {
-                        // 句読点ならαマークを維持（改行を入れる）
                         currentResult += LINE_BREAK_ALPHA_MARK;
                     }
                 } else {
-                    // 指定範囲外なのでαマークを維持（改行を入れる）
                     currentResult += LINE_BREAK_ALPHA_MARK;
                 }
-                // αマークを処理したら、現在の論理的な行は終わるので長さをリセット
                 currentLogicalLineLength = 0;
             } else if (matchedMark === PARAGRAPH_SEP_MARK) {
-                // 段落区切りマークの場合（常に維持）
-                // 直前のバッファに論理行があれば、強制的に改行として扱う
                 if (currentLogicalLineLength > 0) {
-                    currentResult += LINE_BREAK_ALPHA_MARK; // 段落前で確定
+                    currentResult += LINE_BREAK_ALPHA_MARK;
                 }
                 currentResult += PARAGRAPH_SEP_MARK;
-                currentLogicalLineLength = 0; // リセット
+                currentLogicalLineLength = 0;
             }
-            // マークの長さ分、インデックスを進める
             i += matchedMark.length - 1;
         } else {
-            // 通常の文字の場合
             currentResult += char;
             currentLogicalLineLength++;
         }
     }
 
-    // 3. 削除対象マークを空文字に置換して削除
     currentResult = currentResult.replace(new RegExp(DELETE_TARGET_MARK, 'g'), '');
-
-    // 4. 残ったαマークを改行に、段落区切りマークを連続改行に戻す
     currentResult = currentResult.replace(new RegExp(LINE_BREAK_ALPHA_MARK, 'g'), '\n');
     currentResult = currentResult.replace(new RegExp(PARAGRAPH_SEP_MARK, 'g'), '\n\n');
 
-    // 最終的な調整: 連続する半角スペースを1つに、前後の空白を削除
     currentResult = currentResult.replace(/[ \t]+/g, ' ').trim(); 
     
-    // 結果を出力
     document.getElementById('outputTextArea').value = currentResult;
 }
 
@@ -136,67 +112,110 @@ function showCopyMessage() {
 
 /**
  * 入力と出力のテキストエリアのみをリセットする関数
- * (文字数カウント枠と設定値は保持)
  */
 function resetInputOutput() {
     document.getElementById('inputTextArea').value = '';
     document.getElementById('outputTextArea').value = '';
-    // inputイベントを発動させて出力側も確実に空にする
-    autoProcess(); 
+    autoProcess(); // リアルタイム処理を反映
+}
+
+// --- 修正部分: ここから下が主に変わっています ---
+
+/**
+ * contenteditable 内のHTMLから正しいテキストを取得する関数
+ * (ブラウザによる改行タグの違いを吸収する)
+ */
+function getPlainTextFromHtml(html) {
+    // 一時的な div 要素を作成して HTML をパースする
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+
+    // 改行タグ (<br>, <p>, <div>) をユニークなマーカーに置換してからテキストを取得する
+    // 連続するタグを1つの改行として扱うための処理
+    
+    // 1. div, p タグはブロックの終わり（改行）とみなす
+    // </p></div> の後ろなどに BR があると空行が重複するので、まずタグを置換
+    
+    // div や p の閉じタグを改行コードに変換
+    let htmlWithLineBreaks = html.replace(/<\/div>/gi, '\n')
+                                 .replace(/<\/p>/gi, '\n')
+                                 .replace(/<br\s*\/?>/gi, '\n'); // brタグも改行に
+
+    tempDiv.innerHTML = htmlWithLineBreaks;
+    
+    // テキストを取得（innerTextを使うと、ここできれいにスペースや改行が調整される）
+    let text = tempDiv.innerText || tempDiv.textContent;
+
+    // 念の為、連続する改行を整理（最大2つまでにするなどはお好みで、今回はそのまま表示します）
+    // text = text.replace(/\n\n+/g, '\n\n');
+
+    return text;
 }
 
 /**
- * 文字数カウントエリアへの直接入力/ペースト時の処理
+ * 文字数カウントエリアへの入力/ペースト時の共通処理
  */
-function handleCounterInput() {
-    updateCharCountDisplay();
-}
-
-function handleCounterPaste() {
-    // ペーストされた瞬間に文字数を再計算するために少し遅延させる
-    setTimeout(updateCharCountDisplay, 0);
-}
-
-/**
- * 文字数カウント表示を更新する関数 (主要ロジック)
- */
-function updateCharCountDisplay() {
+function handleCounterChange() {
     const charCounterArea = document.getElementById('charCounterArea');
     const maxCharDisplay = document.getElementById('maxCharDisplay');
+
+    // contenteditable の現在の HTML を取得
+    const htmlContent = charCounterArea.innerHTML;
     
-    // contenteditable からテキストを取得 (innerText を使用)
-    let text = charCounterArea.innerText;
+    // HTMLからプレーンテキストを抽出する関数を通す
+    const text = getPlainTextFromHtml(htmlContent);
 
-    // 改行コードを統一
-    text = text.replace(/\r\n|\r/g, '\n');
-
-    // 空の場合はリセットして終了
+    // 全体の文字数が0ならリセットして終了
     if (text.length === 0) {
-        charCounterArea.innerHTML = '';
+        // 完全に空になった場合はHTMLも空にする（プレースホルダー表示のため）
+        if (charCounterArea.innerHTML !== '') {
+            charCounterArea.innerHTML = '';
+        }
         maxCharDisplay.textContent = '最大文字数：0';
         return;
     }
 
+    // テキストを行に分割
     const lines = text.split('\n');
-    let htmlContent = '';
+    
+    let newHtml = '';
     let maxLen = 0;
 
-    lines.forEach(line => {
-        // 行ごとの文字数をカウント (全角/半角問わず1文字としてカウント)
+    lines.forEach((line) => {
+        // 各行の文字数をカウント（改行コードは含まない）
         const len = line.length;
         if (len > maxLen) maxLen = len;
 
-        // HTMLを組み立て。スタイルはCSSで定義済み
-        htmlContent += `<span class="line" data-char-count="${len}文字">${escapeHtml(line)}</span>`;
+        // spanタグで囲んで文字数データを付与し、HTMLを再構築
+        // escapeHtml を通してXSS対策
+        newHtml += `<span class="line" data-char-count="${len}文字">${escapeHtml(line)}</span>`;
     });
 
     // 表示を更新
-    charCounterArea.innerHTML = htmlContent;
+    if (charCounterArea.innerHTML !== newHtml) {
+        charCounterArea.innerHTML = newHtml;
+        
+        // カーソル位置がずれるのを防ぐための処理（複雑になるので今回は割愛。
+        // 文字数が多い状態で更新するとカーソルが先頭に戻る可能性があります。
+        // 気になる場合はIME入力中は更新を止めるなどの制御が必要です。）
+    }
+    
     maxCharDisplay.textContent = `最大文字数：${maxLen}`;
 }
 
+// イベントハンドラを整理
+function handleCounterInput() {
+    handleCounterChange();
+}
+
+function handleCounterPaste(e) {
+    // ペースト時はデフォルトの挙動を一度キャンセルし、テキストのみを取得して挿入するなどの工夫が必要だが、
+    // 今回はシンプルにペースト後に少し遅延させて再計算する方式を採用
+    setTimeout(handleCounterChange, 100); 
+}
+
 /**
- * HTMLエスケープ処理 (XSS対策)
+ * HTMLエスケープ処理
  */
 function escapeHtml(text) {
     if (!text) return '';
@@ -210,5 +229,3 @@ function escapeHtml(text) {
         }[m];
     });
 }
-
-// ページロード時の初期化処理は特に不要（HTMLのプレースホルダーが機能するため）
