@@ -148,12 +148,12 @@
         </div>
     </div>
 
-    <!-- 3. 削除文字数入力（デフォルト空欄） -->
+    <!-- 3. 削除文字数入力 -->
     <div class="settings-section">
         <label for="minChars">改行を削除する行の文字数範囲：</label>
-        <input type="number" id="minChars" min="1" placeholder="例: 28">
+        <input type="number" id="minChars" value="28" min="1">
         <span>文字目 〜</span>
-        <input type="number" id="maxChars" min="1" placeholder="例: 30">
+        <input type="number" id="maxChars" value="30" min="1">
         <span>文字目</span>
     </div>
 
@@ -191,55 +191,111 @@
 
     // 処理のメインロジック
     function processText() {
-        try {
-            const text = inputText.value;
-            const minLen = parseInt(minCharsInput.value, 10);
-            const maxLen = parseInt(maxCharsInput.value, 10);
+        const text = inputText.value;
+        const minLen = parseInt(minCharsInput.value, 10);
+        const maxLen = parseInt(maxCharsInput.value, 10);
 
-            if (!text) {
-                outputText.value = '';
-                updateLineCounts([]);
-                return;
-            }
+        if (!text) {
+            outputText.value = '';
+            updateLineCounts([]);
+            return;
+        }
 
-            // 1. 改行コードを「α」に一時変換
-            // ※テキスト中に現れない特殊文字としてプライベート文字「\uE000」を使用します
-            const placeholderAlpha = '\uE000';
-            let step1 = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, placeholderAlpha);
+        // 1. 改行コードを「α」に一時変換
+        // ※ ユーザーの入力テキスト自体に含まれない可能性が高い、特殊な一時文字（プレースホルダー）として '\uE000'（私用領域文字）を内部的に「α」として扱います。
+        const placeholderAlpha = '\uE000';
+        let step1 = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, placeholderAlpha);
 
-            // 2. 「α」の前後の半角スペース・全角スペース（\u3000）をすべて削除
-            // 互換性向上のため、静的な正規表現に修正
-            let step2 = step1.replace(/[ \u3000]*\uE000[ \u3000]*/g, placeholderAlpha);
+        // 2. 「α」の前後の半角スペース・全角スペースをすべて削除
+        // [ 　]* は半角スペースと全角スペースの0回以上の繰り返しにマッチします
+        const spaceRemoveRegex = new RegExp(`[ 　]*${placeholderAlpha}[ 　]*`, 'g');
+        let step2 = step1.replace(spaceRemoveRegex, placeholderAlpha);
 
-            // 3. 各セグメントに分割し、それぞれの文字数を計算
-            const segments = step2.split(placeholderAlpha);
-            
-            // 文字数カウント表示を更新
-            updateLineCounts(segments);
+        // 3. 文頭～α間、α～α間のセグメント（行）に分割し、それぞれの文字数を計算
+        const segments = step2.split(placeholderAlpha);
+        
+        // 文字数カウント表示を更新（スペース削除適用後の各セグメントの文字数を表示します）
+        updateLineCounts(segments);
 
-            // 範囲指定（minLen、maxLen）が未入力、または正しくない場合はスペース削除のみを行い改行を復元
-            if (isNaN(minLen) || isNaN(maxLen) || minLen > maxLen) {
-                outputText.value = segments.join('\n');
-                return;
-            }
+        if (isNaN(minLen) || isNaN(maxLen) || minLen > maxLen) {
+            // パラメータが不正な場合は、スペース削除処理のみを適用して出力します
+            outputText.value = segments.join('\n');
+            return;
+        }
 
-            // 4. 指定範囲内の文字数の直後にある「α」を「β」とみなして削除
-            const processedSegments = [];
-            for (let i = 0; i < segments.length; i++) {
-                processedSegments.push(segments[i]);
+        // 4. 「改行を削除する行の文字数範囲」に対応する位置にある「α」を「β」に変換して削除
+        const processedSegments = [];
+        for (let i = 0; i < segments.length; i++) {
+            processedSegments.push(segments[i]);
 
-                if (i < segments.length - 1) {
-                    const currentSegmentLength = segments[i].length;
-                    
-                    // 指定範囲内の場合、結合処理（改行用一時文字を追加しない）
-                    if (currentSegmentLength >= minLen && currentSegmentLength <= maxLen) {
-                        // βとして削除
-                    } else {
-                        // αとして維持
-                        processedSegments.push(placeholderAlpha);
-                    }
+            if (i < segments.length - 1) {
+                const currentSegmentLength = segments[i].length;
+                
+                // セグメントの文字数が指定範囲内（例: 28〜30）の場合、
+                // その直後（入力文字数 + 1 の位置）にある「α」を「β」とみなし、削除します（＝結合する）。
+                if (currentSegmentLength >= minLen && currentSegmentLength <= maxLen) {
+                    // βとして処理（結合するため、区切り文字を挿入しない）
+                } else {
+                    // αを維持（後で改行に戻すため、一時文字を挿入する）
+                    processedSegments.push(placeholderAlpha);
                 }
             }
+        }
 
-            // 5. 残った「α」を改行に復元して出力
-            const finalResult = process
+        // 5. 残った「α」を改行に復元して出力
+        const finalResult = processedSegments.join('').replace(new RegExp(placeholderAlpha, 'g'), '\n');
+        outputText.value = finalResult;
+    }
+
+    // 文字数カウント表示の更新
+    function updateLineCounts(segments) {
+        if (segments.length === 0) {
+            lineCounts.innerHTML = '（テキストを入力するとここに各行の文字数が表示されます）';
+            maxCount.innerText = '0';
+            return;
+        }
+
+        let maxLen = 0;
+        let htmlContent = '';
+
+        segments.forEach((segment, index) => {
+            const len = segment.length;
+            if (len > maxLen) {
+                maxLen = len;
+            }
+            htmlContent += `<div>${index + 1}行目: ${len} 文字</div>`;
+        });
+
+        lineCounts.innerHTML = htmlContent;
+        maxCount.innerText = maxLen;
+    }
+
+    // イベントリスナーの登録
+    inputText.addEventListener('input', processText);
+    minCharsInput.addEventListener('input', processText);
+    maxCharsInput.addEventListener('input', processText);
+
+    // 入力リセット機能（設定値は維持）
+    btnReset.addEventListener('click', () => {
+        inputText.value = '';
+        processText();
+    });
+
+    // コピー機能
+    btnCopy.addEventListener('click', () => {
+        outputText.select();
+        try {
+            document.execCommand('copy');
+            const originalText = btnCopy.textContent;
+            btnCopy.textContent = 'コピーしました！';
+            setTimeout(() => {
+                btnCopy.textContent = originalText;
+            }, 2000);
+        } catch (err) {
+            alert('コピーに失敗しました。手動でコピーしてください。');
+        }
+    });
+</script>
+
+</body>
+</html>
