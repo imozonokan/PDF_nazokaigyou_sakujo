@@ -70,6 +70,48 @@
             padding: 5px;
             margin: 0 5px;
         }
+        /* 置換設定エリア */
+        .rule-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            background: #fdfdfd;
+            border: 1px dashed #ccc;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+        .rule-field {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .rule-field label {
+            font-size: 0.85rem;
+            color: #555;
+            white-space: nowrap;
+        }
+        .rule-field input[type="text"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 150px;
+            font-size: 0.9rem;
+        }
+        .btn-remove-rule {
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .btn-remove-rule:hover {
+            background-color: #c82333;
+        }
         /* テキストエリア */
         .text-areas {
             display: flex;
@@ -177,6 +219,15 @@
             </div>
         </div>
     </div>
+
+    <!-- 5. 単語置換設定 -->
+    <div class="settings-section">
+        <div style="font-weight: bold; margin-bottom: 10px;">単語置換設定</div>
+        <div id="rulesContainer">
+            <!-- ルールが動的に追加されます -->
+        </div>
+        <button type="button" id="btnAddRule" style="background-color: #007bff; color: white; margin-top: 5px; padding: 6px 12px; font-size: 0.85rem;">＋ ルールを追加</button>
+    </div>
 </div>
 
 <script>
@@ -188,12 +239,96 @@
     const maxCount = document.getElementById('maxCount');
     const btnReset = document.getElementById('btnReset');
     const btnCopy = document.getElementById('btnCopy');
+    const rulesContainer = document.getElementById('rulesContainer');
+    const btnAddRule = document.getElementById('btnAddRule');
+
+    // 正規表現のエスケープ用関数
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // 置換処理の実行
+    function applyReplacements(text) {
+        const ruleRows = document.querySelectorAll('.rule-row');
+        let processedText = text;
+
+        ruleRows.forEach((row, index) => {
+            const beforeVal = row.querySelector('.rule-before').value;
+            const afterVal = row.querySelector('.rule-after').value;
+            const excludeVal = row.querySelector('.rule-exclude').value;
+
+            if (!beforeVal) return;
+
+            // プレースホルダー用の一時的な接頭辞
+            const placeholderPrefix = `___TEMP_RULE_${index}_`;
+            let placeholders = [];
+            let tempText = processedText;
+
+            // 1. 置換禁止単語を一時的にプレースホルダーに退避
+            if (excludeVal) {
+                const excludeRegex = new RegExp(escapeRegExp(excludeVal), 'g');
+                let matchIndex = 0;
+                tempText = tempText.replace(excludeRegex, () => {
+                    const ph = `${placeholderPrefix}${matchIndex}___`;
+                    placeholders.push({ placeholder: ph, original: excludeVal });
+                    matchIndex++;
+                    return ph;
+                });
+            }
+
+            // 2. 置換対象の単語を置換
+            const beforeRegex = new RegExp(escapeRegExp(beforeVal), 'g');
+            tempText = tempText.replace(beforeRegex, afterVal);
+
+            // 3. 退避した置換禁止単語を復元
+            placeholders.forEach(item => {
+                tempText = tempText.replace(item.placeholder, item.original);
+            });
+
+            processedText = tempText;
+        });
+
+        return processedText;
+    }
+
+    // ルール行の動的生成
+    function createRuleRow(before = '', after = '', exclude = '') {
+        const row = document.createElement('div');
+        row.className = 'rule-row';
+
+        row.innerHTML = `
+            <div class="rule-field">
+                <label>置換前:</label>
+                <input type="text" class="rule-before" value="${before}" placeholder="例: HO1">
+            </div>
+            <div class="rule-field">
+                <label>置換後:</label>
+                <input type="text" class="rule-after" value="${after}" placeholder="例: {HO1}">
+            </div>
+            <div class="rule-field">
+                <label>置換禁止:</label>
+                <input type="text" class="rule-exclude" value="${exclude}" placeholder="例: {HO1}">
+            </div>
+            <button type="button" class="btn-remove-rule">－</button>
+        `;
+
+        // 入力値変更時に再処理を実行
+        row.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', processText);
+        });
+
+        // 削除ボタンのイベント設定
+        row.querySelector('.btn-remove-rule').addEventListener('click', () => {
+            row.remove();
+            processText();
+        });
+
+        rulesContainer.appendChild(row);
+    }
 
     // 処理のメインロジック
     function processText() {
-        const text = inputText.value;
-        const minLen = parseInt(minCharsInput.value, 10);
-        const maxLen = parseInt(maxCharsInput.value, 10);
+        let text = inputText.value;
 
         if (!text) {
             outputText.value = '';
@@ -201,13 +336,14 @@
             return;
         }
 
+        // 単語の置換処理を適用
+        text = applyReplacements(text);
+
         // 1. 改行コードを「α」に一時変換
-        // ※ ユーザーの入力テキスト自体に含まれない可能性が高い、特殊な一時文字（プレースホルダー）として '\uE000'（私用領域文字）を内部的に「α」として扱います。
         const placeholderAlpha = '\uE000';
         let step1 = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, placeholderAlpha);
 
         // 2. 「α」の前後の半角スペース・全角スペースをすべて削除
-        // [ 　]* は半角スペースと全角スペースの0回以上の繰り返しにマッチします
         const spaceRemoveRegex = new RegExp(`[ 　]*${placeholderAlpha}[ 　]*`, 'g');
         let step2 = step1.replace(spaceRemoveRegex, placeholderAlpha);
 
@@ -217,13 +353,16 @@
         // 文字数カウント表示を更新（スペース削除適用後の各セグメントの文字数を表示します）
         updateLineCounts(segments);
 
+        const minLen = parseInt(minCharsInput.value, 10);
+        const maxLen = parseInt(maxCharsInput.value, 10);
+
         if (isNaN(minLen) || isNaN(maxLen) || minLen > maxLen) {
             // パラメータが不正な場合は、スペース削除処理のみを適用して出力します
             outputText.value = segments.join('\n');
             return;
         }
 
-        // 4. 「改行を削除する行の文字数範囲」に対応する位置にある「α」を「β」に変換して削除
+        // 4. 「改行を削除する行の文字数範囲」に対応する位置にある「α」を削除
         const processedSegments = [];
         for (let i = 0; i < segments.length; i++) {
             processedSegments.push(segments[i]);
@@ -231,12 +370,11 @@
             if (i < segments.length - 1) {
                 const currentSegmentLength = segments[i].length;
                 
-                // セグメントの文字数が指定範囲内（例: 28〜30）の場合、
-                // その直後（入力文字数 + 1 の位置）にある「α」を「β」とみなし、削除します（＝結合する）。
+                // セグメントの文字数が指定範囲内の場合、結合する
                 if (currentSegmentLength >= minLen && currentSegmentLength <= maxLen) {
-                    // βとして処理（結合するため、区切り文字を挿入しない）
+                    // 結合するため、区切り文字を挿入しない
                 } else {
-                    // αを維持（後で改行に戻すため、一時文字を挿入する）
+                    // 改行に戻すため、一時文字を挿入する
                     processedSegments.push(placeholderAlpha);
                 }
             }
@@ -275,6 +413,12 @@
     minCharsInput.addEventListener('input', processText);
     maxCharsInput.addEventListener('input', processText);
 
+    // ルール追加ボタン
+    btnAddRule.addEventListener('click', () => {
+        createRuleRow();
+        processText();
+    });
+
     // 入力リセット機能（設定値は維持）
     btnReset.addEventListener('click', () => {
         inputText.value = '';
@@ -295,6 +439,9 @@
             alert('コピーに失敗しました。手動でコピーしてください。');
         }
     });
+
+    // 初期状態としてルールを1行登録しておく
+    createRuleRow();
 </script>
 
 </body>
